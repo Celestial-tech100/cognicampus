@@ -8,6 +8,7 @@ from .models import Base, User, StudentProfile, UserRole
 from .auth import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
 from pydantic import BaseModel
 
+
 # Create tables in PostgreSQL automatically on startup
 Base.metadata.create_all(bind=engine)
 
