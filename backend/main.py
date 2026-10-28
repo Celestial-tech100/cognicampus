@@ -71,3 +71,59 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 @app.get("/users/me")
 def read_users_me(current_user: User = Depends(get_current_user)):
     return {"email": current_user.email, "role": current_user.role}
+
+@app.get("/student/dashboard")
+def get_student_dashboard(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != UserRole.student:
+        raise HTTPException(status_code=403, detail="Access forbidden: Student role required")
+    
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+        
+    return {
+        "email": current_user.email,
+        "role": current_user.role,
+        "full_name": profile.full_name,
+        "cgpa": profile.cgpa,
+        "branch": profile.branch,
+        "skills": profile.skills
+    }
+
+@app.get("/recruiter/candidates")
+def get_recruiter_candidates(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != UserRole.recruiter and current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Access forbidden: Recruiter or Admin role required")
+    
+    students = db.query(StudentProfile).all()
+    return {"candidates": students}
+
+@app.post("/student/predict-career")
+def predict_career_path(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != UserRole.student:
+        raise HTTPException(status_code=403, detail="Access forbidden: Student role required")
+    
+    profile = db.query(StudentProfile).filter(StudentProfile.user_id == current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+    
+    # Placeholder hook for Aishwarya's Scikit-learn ML model logic
+    return {
+        "student": profile.full_name,
+        "cgpa": profile.cgpa,
+        "recommended_role": "Software Engineer / Data Analyst",
+        "readiness_score": min(95.0, profile.cgpa * 10 + 15)
+    }
+
+@app.get("/analytics/overview")
+def get_institutional_analytics(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Access forbidden: Admin role required")
+    
+    total_students = db.query(StudentProfile).count()
+    avg_cgpa = db.query(db.func.avg(StudentProfile.cgpa)).scalar() or 0.0
+    
+    return {
+        "total_registered_students": total_students,
+        "institutional_average_cgpa": round(float(avg_cgpa), 2)
+    }
