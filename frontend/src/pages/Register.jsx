@@ -88,14 +88,19 @@ export default function Register() {
 
     setIsSubmitting(true)
     try {
+      // FIX: Map React state to FastAPI's exact Pydantic schema
       await register({
         fullName: formData.fullName,
+        full_name: formData.fullName, // Converted to snake_case
         email: formData.email,
         password: formData.password,
         role: formData.role,
+        // Adding default values for the fields missing in the UI
+        cgpa: 0.0, 
+        branch: "Not Specified",
+        skills: "None"
       })
 
-      // On success, redirect to login page with friendly confirmation message
       navigate('/login', {
         state: {
           registrationSuccess: `Account created successfully for ${formData.fullName}! Please sign in with your credentials.`,
