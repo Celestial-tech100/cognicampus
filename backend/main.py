@@ -2,7 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
-
+from typing import Optional
+from pydantic import BaseModel
 from .database import engine, get_db
 from .models import Base, User, StudentProfile, UserRole
 from .auth import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
@@ -12,17 +13,31 @@ from pydantic import BaseModel
 # Create tables in PostgreSQL automatically on startup
 Base.metadata.create_all(bind=engine)
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="CogniCampus API", version="1.0", docs_url=None, redoc_url="/redoc")
+# Add this near the top of main.py, after initializing 'app'
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Pydantic Schemas for Request Validation
 class UserRegister(BaseModel):
     email: str
     password: str
     role: UserRole
-    full_name: str
-    cgpa: float
-    branch: str
-    skills: str
+    # Accept both naming conventions so the frontend doesn't break
+    full_name: Optional[str] = "New User"
+    fullName: Optional[str] = None 
+    
+    # Make student-specific fields optional with default values
+    cgpa: Optional[float] = 0.0
+    branch: Optional[str] = "Not Specified"
+    skills: Optional[str] = "None"
 
 @app.get("/")
 def read_root():
@@ -72,6 +87,8 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 def read_users_me(current_user: User = Depends(get_current_user)):
     return {"email": current_user.email, "role": current_user.role}
 
+from sqlalchemy import text
+
 @app.get("/student/dashboard")
 def get_student_dashboard(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role != UserRole.student:
@@ -107,7 +124,6 @@ def predict_career_path(current_user: User = Depends(get_current_user), db: Sess
     if not profile:
         raise HTTPException(status_code=404, detail="Student profile not found")
     
-    # Placeholder hook for Aishwarya's Scikit-learn ML model logic
     return {
         "student": profile.full_name,
         "cgpa": profile.cgpa,
@@ -115,6 +131,36 @@ def predict_career_path(current_user: User = Depends(get_current_user), db: Sess
         "readiness_score": min(95.0, profile.cgpa * 10 + 15)
     }
 
+@app.get("/analytics/branch-placement-rates")
+def get_branch_placement_rates(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Access forbidden: Admin role required")
+    
+    query = text("""
+        SELECT 
+            s.branch,
+            COUNT(DISTINCT s.id) AS total_students,
+            COUNT(DISTINCT p.student_id) FILTER (WHERE p.placement_status = 'Placed') AS placed_students,
+            ROUND(
+                100.0 * COUNT(DISTINCT p.student_id) FILTER (WHERE p.placement_status = 'Placed') 
+                / NULLIF(COUNT(DISTINCT s.id), 0), 2
+            ) AS placement_percentage
+        FROM student_profiles s
+        LEFT JOIN placements p ON s.id = p.student_id
+        GROUP BY s.branch
+        ORDER BY placement_percentage DESC;
+    """)
+    result = db.execute(query).fetchall()
+    return [
+        {
+            "branch": row[0], 
+            "total_students": row[1], 
+            "placed_students": row[2], 
+            "placement_percentage": row[3]
+        } 
+        for row in result
+    ]
+    
 @app.get("/analytics/overview")
 def get_institutional_analytics(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role != UserRole.admin:
@@ -127,3 +173,5 @@ def get_institutional_analytics(current_user: User = Depends(get_current_user), 
         "total_registered_students": total_students,
         "institutional_average_cgpa": round(float(avg_cgpa), 2)
     }
+    
+from sqlalchemy import text

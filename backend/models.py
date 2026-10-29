@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Enum, DateTime
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Enum, DateTime , Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -33,3 +33,15 @@ class StudentProfile(Base):
     resume_url = Column(String, nullable=True)
 
     user = relationship("User", back_populates="student_profile")
+    
+class Placement(Base):
+    __tablename__ = "placements"
+
+    placement_id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("student_profiles.id"))
+    company_name = Column(String(100), nullable=True)
+    package_lpa = Column(Float, nullable=True)
+    placement_status = Column(String(20), default="Not Placed") # 'Placed' or 'Not Placed'
+    placement_date = Column(Date, nullable=True)
+
+    student_profile = relationship("StudentProfile", backref="placements")
