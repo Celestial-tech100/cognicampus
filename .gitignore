@@ -218,3 +218,28 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Cognicampus specific
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python virtual environments
+backend/venv/
+backend/.venv/
+
+# Machine learning generated artifacts
+ml_models/artifacts/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary files
+*.tmp
+tempCodeRunnerFile.py
+
+# IDE settings (optional)
+.vscode/
