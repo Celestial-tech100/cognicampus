@@ -1,0 +1,44 @@
+{
+  "test_rows": 24,
+  "train_rows": 96,
+  "accuracy": 1.0,
+  "classification_report": {
+    "Data Analyst": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 8.0
+    },
+    "QA Engineer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 8.0
+    },
+    "Software Developer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 8.0
+    },
+    "accuracy": 1.0,
+    "macro avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 24.0
+    },
+    "weighted avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 24.0
+    }
+  },
+  "labels": [
+    "Data Analyst",
+    "QA Engineer",
+    "Software Developer"
+  ],
+  "warning": "Evaluation is only a baseline. Review per-class metrics and validate on a later cohort before using recommendations with students."
+}
