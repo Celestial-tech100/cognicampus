@@ -14,8 +14,8 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    email = Column(String(255), unique=True, index=True)
+    hashed_password = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), default=UserRole.student, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -26,11 +26,11 @@ class StudentProfile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    full_name = Column(String, nullable=False)
+    full_name = Column(String(225), nullable=False)
     cgpa = Column(Float, nullable=False)
-    branch = Column(String, nullable=False)
-    skills = Column(String, nullable=False)
-    resume_url = Column(String, nullable=True)
+    branch = Column(String(225), nullable=False)
+    skills = Column(String(225), nullable=False)
+    resume_url = Column(String(225), nullable=True)
 
     user = relationship("User", back_populates="student_profile")
     

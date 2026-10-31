@@ -9,6 +9,13 @@ from .models import Base, User, StudentProfile, UserRole
 from .auth import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
 from pydantic import BaseModel
 
+import sys
+from pathlib import Path
+
+# Add the root project directory to the path so main.py can find the ml_models package
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+from ml_models.predictor import recommend_career
 
 # Create tables in PostgreSQL automatically on startup
 Base.metadata.create_all(bind=engine)
@@ -124,12 +131,27 @@ def predict_career_path(current_user: User = Depends(get_current_user), db: Sess
     if not profile:
         raise HTTPException(status_code=404, detail="Student profile not found")
     
-    return {
-        "student": profile.full_name,
-        "cgpa": profile.cgpa,
-        "recommended_role": "Software Engineer / Data Analyst",
-        "readiness_score": min(95.0, profile.cgpa * 10 + 15)
-    }
+    # Process skills string from DB into a list (assuming comma-separated format)
+    skill_list = [s.strip() for s in profile.skills.split(",")] if profile.skills else ["None"]
+    
+    try:
+        # Call Aishwarya's predictive model
+        predictions = recommend_career(cgpa=profile.cgpa, core_skills=skill_list, top_k=3)
+        
+        # Calculate a baseline readiness score based on the highest probability match
+        top_match_score = predictions[0]["score"] * 100 if predictions else 0
+        readiness_score = min(100.0, max(0.0, top_match_score)) # Clamp between 0-100
+        
+        return {
+            "student": profile.full_name,
+            "cgpa": profile.cgpa,
+            "skills": skill_list,
+            "recommended_roles": predictions,
+            "readiness_score": round(readiness_score, 1)
+        }
+    except Exception as e:
+        # Catch errors if the model file is missing or throws an exception
+        raise HTTPException(status_code=500, detail=f"Prediction engine error: {str(e)}")
 
 @app.get("/analytics/branch-placement-rates")
 def get_branch_placement_rates(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
