@@ -6,22 +6,14 @@ import api from './api'
  *
  * Primary endpoints:
  * - Login: POST /token (OAuth2PasswordRequestForm urlencoded: username, password)
- * - Registration: POST /register (JSON: full_name, email, password, role)
- *
- * Security Considerations:
- * - Passwords are NEVER stored, cached, or logged.
- * - Browser localStorage is used for Bearer token storage only because the backend
- *   uses token-based auth rather than HttpOnly cookies. Note: In production, HttpOnly
- *   secure cookies are recommended to prevent XSS exposure.
- * - Role claims are verified against trusted backend responses.
+ * - Registration: POST /register (JSON: full_name, email, password, role, cgpa, branch, skills)
  */
 
 const TOKEN_KEY = 'cognicampus_token'
 const USER_KEY = 'cognicampus_user'
 
 /**
- * Safely decodes JWT payload claims without cryptographic verification (verification happens on backend).
- * Used only as a fallback to extract backend-issued role claims if not present at top level.
+ * Safely decodes JWT payload claims without cryptographic verification.
  */
 function parseJwtClaims(token) {
   try {
@@ -46,21 +38,18 @@ export const authService = {
   async login({ email, password }) {
     const trimmedEmail = email.trim()
 
-    // Build standard OAuth2 form-encoded data
     const formData = new URLSearchParams()
     formData.append('username', trimmedEmail)
     formData.append('password', password)
 
     let response
     try {
-      // First try standard FastAPI /token with OAuth2 form-data
       response = await api.post('/token', formData, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       })
     } catch (err) {
-      // If /token returns 404 or 422, try alternate JSON format or /api/v1/auth/login if applicable
       if (err.status === 404 || err.status === 422) {
         try {
           response = await api.post('/api/v1/auth/login', {
@@ -68,7 +57,6 @@ export const authService = {
             password,
           })
         } catch {
-          // Re-throw initial normalized error
           throw err
         }
       } else {
@@ -85,31 +73,29 @@ export const authService = {
       }
     }
 
-    // Determine role from backend response or JWT claims
     let role = data.role || data.user?.role
     if (!role) {
       const claims = parseJwtClaims(token)
       role = claims?.role || claims?.user_role || claims?.sub_role
     }
 
-    // Validate extracted role against trusted roles
     const normalizedRole = role ? String(role).toLowerCase() : null
-    if (normalizedRole !== 'student' && normalizedRole !== 'recruiter') {
+    if (normalizedRole !== 'student' && normalizedRole !== 'recruiter' && normalizedRole !== 'admin') {
       throw {
         status: 403,
-        message: `Authenticated user has an unsupported or missing role: "${role || 'unassigned'}". Access to dashboards is restricted.`,
+        message: `Authenticated user has an unsupported or missing role: "${role || 'unassigned'}". Access restricted.`,
       }
     }
 
     const userProfile = {
       email: trimmedEmail,
       role: normalizedRole,
-      fullName: data.user?.full_name || data.full_name || '',
+      fullName: data.full_name || data.user?.full_name || trimmedEmail.split('@')[0],
       id: data.user?.id || data.user_id,
     }
 
-    // Persist session
     localStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem('token', token)
     localStorage.setItem(USER_KEY, JSON.stringify(userProfile))
 
     return {
@@ -120,15 +106,11 @@ export const authService = {
   },
 
   /**
-   * Register a new Student or Recruiter account.
-   *
-   * @param {{ fullName: string, email: string, password: string, role: string }} userData
-   * @returns {Promise<any>}
+   * Register a new Student or Recruiter account with profile attributes.
    */
-  async register({ fullName, email, password, role }) {
+  async register({ fullName, email, password, role, cgpa, branch, skills }) {
     const normalizedRole = String(role).toLowerCase().trim()
 
-    // Strict client security guard: NEVER permit Admin registration via public portal
     if (normalizedRole !== 'student' && normalizedRole !== 'recruiter') {
       throw {
         status: 400,
@@ -137,17 +119,20 @@ export const authService = {
     }
 
     const payload = {
-      full_name: fullName.trim(),
+      full_name: (fullName || '').trim(),
+      fullName: (fullName || '').trim(),
       email: email.trim(),
       password,
       role: normalizedRole,
+      cgpa: normalizedRole === 'student' ? parseFloat(cgpa) || 7.5 : 0.0,
+      branch: normalizedRole === 'student' ? (branch || 'Computer Science') : 'Not Specified',
+      skills: normalizedRole === 'student' ? (skills || 'Python, SQL') : 'None',
     }
 
     let response
     try {
       response = await api.post('/register', payload)
     } catch (err) {
-      // If /register is 404, check /api/v1/auth/register fallback
       if (err.status === 404) {
         response = await api.post('/api/v1/auth/register', payload)
       } else {
@@ -162,7 +147,7 @@ export const authService = {
    * Retrieve active stored session from localStorage.
    */
   getStoredAuth() {
-    const token = localStorage.getItem(TOKEN_KEY)
+    const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem('token')
     const userStr = localStorage.getItem(USER_KEY)
 
     if (!token || !userStr) {
@@ -173,7 +158,6 @@ export const authService = {
       const user = JSON.parse(userStr)
       if (!user?.role) return null
 
-      // Check token expiration if JWT
       const claims = parseJwtClaims(token)
       if (claims?.exp && claims.exp * 1000 < Date.now()) {
         this.logout()
@@ -196,6 +180,7 @@ export const authService = {
    */
   logout() {
     localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem('token')
     localStorage.removeItem(USER_KEY)
   },
 }

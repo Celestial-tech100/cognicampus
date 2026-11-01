@@ -1,10 +1,31 @@
 """Small helper for the student dashboard to obtain career-path suggestions."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from functools import lru_cache
 import pandas as pd
 import joblib
+
+
+def normalize_skills(series: pd.Series) -> pd.Series:
+    """Normalize pipe-separated skills to lowercase whitespace-separated text."""
+    return (
+        series.fillna("")
+        .astype(str)
+        .str.lower()
+        .str.replace(r"\s*\|\s*", " ", regex=True)
+        .str.replace(r"[^a-z0-9+#.\- ]", " ", regex=True)
+        .str.replace(r"\s+", " ", regex=True)
+        .str.strip()
+    )
+
+
+# Crucial fix: Joblib pickled models may reference normalize_skills in __main__
+# Inject normalize_skills into __main__ so unpickling succeeds in any runner/process
+import __main__
+if not hasattr(__main__, "normalize_skills"):
+    setattr(__main__, "normalize_skills", normalize_skills)
 
 MODEL_PATH = Path(__file__).resolve().parent / "artifacts" / "career_recommender.joblib"
 
@@ -16,6 +37,9 @@ def _load_model():
             "Career recommendation model is not trained yet. "
             "Run `python ml_models/train_model.py` with historical data first."
         )
+    # Ensure __main__ has normalize_skills before loading
+    if not hasattr(__main__, "normalize_skills"):
+        setattr(__main__, "normalize_skills", normalize_skills)
     return joblib.load(MODEL_PATH)
 
 

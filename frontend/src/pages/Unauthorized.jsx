@@ -7,7 +7,12 @@ export default function Unauthorized() {
   const { role, logout, isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
-  const dashboardPath = role === 'recruiter' ? '/recruiter/dashboard' : '/student/dashboard'
+  const dashboardPath =
+    role === 'admin'
+      ? '/admin/dashboard'
+      : role === 'recruiter'
+      ? '/recruiter/dashboard'
+      : '/student/dashboard'
 
   const handleLogout = () => {
     logout()
