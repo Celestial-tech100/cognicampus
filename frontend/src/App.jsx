@@ -3,17 +3,20 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoadingSpinner from './components/LoadingSpinner'
+import ErrorBoundary from './components/ErrorBoundary'
 
 // Layouts
 import AuthLayout from './layouts/AuthLayout'
 import StudentLayout from './layouts/StudentLayout'
 import RecruiterLayout from './layouts/RecruiterLayout'
+import AdminLayout from './layouts/AdminLayout'
 
 // Pages
 import Login from './pages/Login'
 import Register from './pages/Register'
 import StudentDashboard from './pages/StudentDashboard'
 import RecruiterDashboard from './pages/RecruiterDashboard'
+import AdminDashboard from './pages/AdminDashboard'
 import Unauthorized from './pages/Unauthorized'
 import NotFound from './pages/NotFound'
 
@@ -29,6 +32,9 @@ function RootRedirect() {
   }
 
   if (isAuthenticated) {
+    if (role === 'admin') {
+      return <Navigate to="/admin/dashboard" replace />
+    }
     return role === 'recruiter' ? (
       <Navigate to="/recruiter/dashboard" replace />
     ) : (
@@ -51,6 +57,9 @@ function PublicOnlyRoute({ children }) {
   }
 
   if (isAuthenticated) {
+    if (role === 'admin') {
+      return <Navigate to="/admin/dashboard" replace />
+    }
     return role === 'recruiter' ? (
       <Navigate to="/recruiter/dashboard" replace />
     ) : (
@@ -63,59 +72,74 @@ function PublicOnlyRoute({ children }) {
 
 export default function App() {
   return (
-    <Routes>
-      {/* Root Entry Point */}
-      <Route path="/" element={<RootRedirect />} />
+    <ErrorBoundary>
+      <Routes>
+        {/* Root Entry Point */}
+        <Route path="/" element={<RootRedirect />} />
 
-      {/* Public Authentication Routes */}
-      <Route element={<AuthLayout />}>
+        {/* Public Authentication Routes */}
+        <Route element={<AuthLayout />}>
+          <Route
+            path="/login"
+            element={
+              <PublicOnlyRoute>
+                <Login />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <PublicOnlyRoute>
+                <Register />
+              </PublicOnlyRoute>
+            }
+          />
+        </Route>
+
+        {/* Protected Student Portal Routes */}
         <Route
-          path="/login"
+          path="/student"
           element={
-            <PublicOnlyRoute>
-              <Login />
-            </PublicOnlyRoute>
+            <ProtectedRoute allowedRoles={['student']}>
+              <StudentLayout />
+            </ProtectedRoute>
           }
-        />
+        >
+          <Route index element={<Navigate to="/student/dashboard" replace />} />
+          <Route path="dashboard" element={<StudentDashboard />} />
+        </Route>
+
+        {/* Protected Recruiter Portal Routes */}
         <Route
-          path="/register"
+          path="/recruiter"
           element={
-            <PublicOnlyRoute>
-              <Register />
-            </PublicOnlyRoute>
+            <ProtectedRoute allowedRoles={['recruiter']}>
+              <RecruiterLayout />
+            </ProtectedRoute>
           }
-        />
-      </Route>
+        >
+          <Route index element={<Navigate to="/recruiter/dashboard" replace />} />
+          <Route path="dashboard" element={<RecruiterDashboard />} />
+        </Route>
 
-      {/* Protected Student Portal Routes */}
-      <Route
-        path="/student"
-        element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <StudentLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="/student/dashboard" replace />} />
-        <Route path="dashboard" element={<StudentDashboard />} />
-      </Route>
+        {/* Protected Admin Portal Routes */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+        </Route>
 
-      {/* Protected Recruiter Portal Routes */}
-      <Route
-        path="/recruiter"
-        element={
-          <ProtectedRoute allowedRoles={['recruiter']}>
-            <RecruiterLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="/recruiter/dashboard" replace />} />
-        <Route path="dashboard" element={<RecruiterDashboard />} />
-      </Route>
-
-      {/* Security & Fallback Pages */}
-      <Route path="/unauthorized" element={<Unauthorized />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        {/* Security & Fallback Pages */}
+        <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </ErrorBoundary>
   )
 }

@@ -17,7 +17,7 @@ const api = axios.create({
 // Attach Bearer Token to outgoing requests if available
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('cognicampus_token')
+    const token = localStorage.getItem('cognicampus_token') || localStorage.getItem('token')
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`
     }

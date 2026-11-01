@@ -1,8 +1,12 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Enum, DateTime
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Enum, DateTime, Date, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
-from .database import Base
+
+try:
+    from .database import Base
+except ImportError:
+    from database import Base
 
 
 class UserRole(str, enum.Enum):
@@ -12,13 +16,14 @@ class UserRole(str, enum.Enum):
 
 class User(Base):
     __tablename__ = "users"
-
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    role = Column(Enum(UserRole), default=UserRole.student, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
+    email = Column(String(255), unique=True, index=True)
+    hashed_password = Column(String(255))
+    role = Column(Enum(UserRole))
+    is_verified = Column(Boolean, default=False)
+    otp_code = Column(String(6), nullable=True)
+    
+    # Relationship to student profile
     student_profile = relationship("StudentProfile", back_populates="user", uselist=False)
 
 class StudentProfile(Base):
@@ -26,10 +31,22 @@ class StudentProfile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    full_name = Column(String, nullable=False)
+    full_name = Column(String(225), nullable=False)
     cgpa = Column(Float, nullable=False)
-    branch = Column(String, nullable=False)
-    skills = Column(String, nullable=False)
-    resume_url = Column(String, nullable=True)
+    branch = Column(String(225), nullable=False)
+    skills = Column(String(225), nullable=False)
+    resume_url = Column(String(225), nullable=True)
 
     user = relationship("User", back_populates="student_profile")
+    
+class Placement(Base):
+    __tablename__ = "placements"
+
+    placement_id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("student_profiles.id"))
+    company_name = Column(String(100), nullable=True)
+    package_lpa = Column(Float, nullable=True)
+    placement_status = Column(String(20), default="Not Placed")
+    placement_date = Column(Date, nullable=True)
+
+    student_profile = relationship("StudentProfile", backref="placements")

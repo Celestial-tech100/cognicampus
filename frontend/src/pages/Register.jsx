@@ -15,7 +15,10 @@ export default function Register() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'student', // default selection
+    role: 'student',
+    branch: 'Computer Science & Engineering',
+    cgpa: '8.2',
+    skills: 'Python, SQL, React, Data Structures'
   })
 
   // Validation & status state
@@ -51,7 +54,6 @@ export default function Register() {
       newErrors.confirmPassword = 'Passwords do not match.'
     }
 
-    // Role boundary validation: Public portal permits ONLY Student or Recruiter
     if (!['student', 'recruiter'].includes(formData.role)) {
       newErrors.role = 'Please select a valid account role (Student or Recruiter).'
     }
@@ -88,22 +90,20 @@ export default function Register() {
 
     setIsSubmitting(true)
     try {
-      // FIX: Map React state to FastAPI's exact Pydantic schema
       await register({
         fullName: formData.fullName,
-        full_name: formData.fullName, // Converted to snake_case
+        full_name: formData.fullName,
         email: formData.email,
         password: formData.password,
         role: formData.role,
-        // Adding default values for the fields missing in the UI
-        cgpa: 0.0, 
-        branch: "Not Specified",
-        skills: "None"
+        cgpa: formData.role === 'student' ? (parseFloat(formData.cgpa) || 7.5) : 0.0,
+        branch: formData.role === 'student' ? (formData.branch || 'Computer Science') : 'Not Specified',
+        skills: formData.role === 'student' ? (formData.skills || 'Python, SQL') : 'None',
       })
 
       navigate('/login', {
         state: {
-          registrationSuccess: `Account created successfully for ${formData.fullName}! Please sign in with your credentials.`,
+          registrationSuccess: `Account created successfully for ${formData.fullName}! Please sign in.`,
         },
       })
     } catch (err) {
@@ -142,6 +142,7 @@ export default function Register() {
         </div>
       )}
 
+      {/* Form */}
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {/* Role Selector Cards */}
         <div className="space-y-1.5">
@@ -211,6 +212,58 @@ export default function Register() {
           required
         />
 
+        {/* Conditional Student Fields */}
+        {formData.role === 'student' && (
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
+            <p className="text-sm font-semibold text-slate-700">Academic &amp; Skills Profile</p>
+
+            <FormInput
+              id="branch"
+              name="branch"
+              type="text"
+              label="Branch / Department"
+              placeholder="e.g. Computer Science & Engineering"
+              value={formData.branch}
+              onChange={handleChange}
+              disabled={isSubmitting}
+              required={formData.role === 'student'}
+            />
+
+            <FormInput
+              id="cgpa"
+              name="cgpa"
+              type="number"
+              step="0.01"
+              min="0"
+              max="10"
+              label="CGPA (out of 10)"
+              placeholder="e.g. 8.5"
+              value={formData.cgpa}
+              onChange={handleChange}
+              disabled={isSubmitting}
+              required={formData.role === 'student'}
+            />
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">
+                Technical Core Skills
+              </label>
+              <input
+                id="skills"
+                name="skills"
+                type="text"
+                placeholder="e.g. Python, SQL, React, Data Structures"
+                value={formData.skills}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                required={formData.role === 'student'}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+              <p className="text-xs text-slate-500 mt-1">Separate skills with commas (fed into Scikit-Learn ML recommender).</p>
+            </div>
+          </div>
+        )}
+
         <FormInput
           id="password"
           name="password"
@@ -262,7 +315,7 @@ export default function Register() {
       {/* Link to Login */}
       <div className="pt-4 border-t border-slate-100 text-center">
         <p className="text-sm text-slate-600">
-          Already registered?{' '}
+          Already have an account?{' '}
           <Link
             to="/login"
             className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors focus:outline-none focus:underline"
